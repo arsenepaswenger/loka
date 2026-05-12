@@ -1,2 +1,0 @@
-# loka
-loka web app
