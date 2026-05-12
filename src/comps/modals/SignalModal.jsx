@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import { GABON_LOCATIONS } from './SignUp'
-import { supabase } from '../../supabaseClient' // Ensure this path is correct
+import { supabase } from '../../supabaseClient'
+import loka from '../../assets/loka.png'
 
 const INCIDENT_TYPES = [
-  { id: 'accident',   label: 'Accident',              icon: '🚗' },
-  { id: 'traffic',    label: 'Embouteillage',         icon: '🚦' },
-  { id: 'police',     label: 'Contrôle Police',       icon: '👮' },
-  { id: 'pothole',    label: 'Nid de poule',          icon: '🕳️' },
-  { id: 'protest',    label: 'Manifestation',         icon: '📢' },
-  { id: 'roadblock',  label: 'Route barrée',          icon: '🚧' },
-  { id: 'power',      label: "Coupure d'électricité",  icon: '⚡' },
-  { id: 'water',      label: "Coupure d'eau",          icon: '💧' },
+  { id: 'accident', label: 'Accident', icon: '🚗' },
+  { id: 'traffic', label: 'Embouteillage', icon: '🚦' },
+  { id: 'police', label: 'Contrôle Police', icon: '👮' },
+  { id: 'pothole', label: 'Nid de poule', icon: '🕳️' },
+  { id: 'protest', label: 'Manifestation', icon: '📢' },
+  { id: 'roadblock', label: 'Route barrée', icon: '🚧' },
+  { id: 'power', label: "Coupure d'électricité", icon: '⚡' },
+  { id: 'water', label: "Coupure d'eau", icon: '💧' },
 ]
 
 function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
@@ -72,11 +73,10 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
 
   const handleSubmit = async () => {
     if (!form.type || !form.title || isSubmitting) return
-    
+
     setIsSubmitting(true)
 
     try {
-      // Connect to Supabase "incidents" table
       const { data, error } = await supabase
         .from('incidents')
         .insert([
@@ -85,11 +85,11 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
             title: form.title,
             description: form.desc,
             location: form.location,
-            image: null, // Note: For actual images, upload to Supabase Storage first and put URL here
+            image: null,
             author_id: userProfile.id,
             author_name: authorName,
             author_location: userProfile.location ?? '',
-            coords: null, // Placeholder for jsonb
+            coords: null,
             created_at: new Date().toISOString()
           }
         ])
@@ -97,10 +97,8 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
 
       if (error) throw error
 
-      // Call the original onSubmit prop if needed for local state update
       if (onSubmit) onSubmit(data[0])
 
-      // Reset form
       setForm({
         type: '',
         title: '',
@@ -108,12 +106,12 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
         location: '',
         image: null
       })
+
       setPreview(null)
       setSuggestions([])
       close()
-      
+
     } catch (error) {
-      console.error('Error inserting incident:', error.message)
       alert('Erreur lors de l’envoi du signalement')
     } finally {
       setIsSubmitting(false)
@@ -133,32 +131,26 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
             : 'translateY(20px) scale(0.98)'
         }}
       >
+
+        {/* LOGO */}
+        <div style={styles.logoWrapper}>
+          <img src={loka} alt="Loka" style={styles.logo} />
+        </div>
+
+        {/* HEADER */}
         <div style={styles.header}>
           <div>
-            <p style={styles.kicker}>Signalement rapide</p>
             <h2 style={styles.title}>Que se passe-t-il ?</h2>
+ 
           </div>
           <button onClick={close} style={styles.close}>×</button>
         </div>
 
-        {/* AUTHOR */}
-        <div style={styles.authorBadge}>
-          <img
-            src={`https://ui-avatars.com/api/?name=${encodeURIComponent(authorName)}&background=111&color=fff`}
-            alt=""
-            style={styles.authorAvatar}
-          />
-          <div>
-            <p style={styles.authorName}>{authorName}</p>
-            <p style={styles.authorSub}>
-              {userProfile.location ?? 'Libreville'}
-            </p>
-          </div>
-        </div>
+        
 
         {/* TYPES */}
         <div style={styles.section}>
-          <p style={styles.label}>Choisis une situation</p>
+          <p style={styles.label}>Type d’incident</p>
           <div style={styles.grid}>
             {INCIDENT_TYPES.map(t => (
               <div
@@ -178,7 +170,8 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
 
         {/* TEXT */}
         <div style={styles.section}>
-          <p style={styles.label}>Décris la situation</p>
+          <p style={styles.label}>Détails</p>
+
           <input
             style={styles.input}
             placeholder="Titre court"
@@ -188,7 +181,7 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
 
           <textarea
             style={{ ...styles.input, height: 80, marginTop: 10 }}
-            placeholder="Détails (optionnel)"
+            placeholder="Description"
             value={form.desc}
             onChange={(e) => update('desc', e.target.value)}
           />
@@ -211,13 +204,13 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
                 {suggestions.map((s) => (
                   <div
                     key={s}
-                    style={styles.sItem}
+                    style={styles.suggestion}
                     onClick={() => {
                       update('location', s)
                       setSuggestions([])
                     }}
                   >
-                    {s}
+                    📍 {s}
                   </div>
                 ))}
               </div>
@@ -230,12 +223,12 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
           {preview ? (
             <img src={preview} style={styles.preview} />
           ) : (
-            <span>📷 Ajouter une photo</span>
+            '📷 Ajouter une photo'
           )}
           <input type="file" hidden onChange={handleFile} />
         </label>
 
-        {/* SUBMIT */}
+        {/* BUTTON */}
         <button
           disabled={!canSend}
           onClick={handleSubmit}
@@ -244,9 +237,21 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
             opacity: canSend ? 1 : 0.4
           }}
         >
-          {isSubmitting ? 'Envoi en cours...' : 'Envoyer'}
+          {isSubmitting ? 'Envoi...' : 'Envoyer'}
         </button>
       </div>
+
+      <style>{`
+        * {
+          font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, system-ui;
+        }
+
+        input:focus, textarea:focus {
+          border-color: #000 !important;
+          background: #fff !important;
+          box-shadow: 0 0 0 4px rgba(0,0,0,0.05);
+        }
+      `}</style>
     </div>
   )
 }
@@ -255,98 +260,166 @@ const styles = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(0,0,0,0.55)',
-    backdropFilter: 'blur(10px)',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    backdropFilter: 'blur(14px)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 3000,
     transition: '0.2s ease'
   },
+
   modal: {
-    width: 420,
-    maxHeight: '88vh',
+    width: 400,
+    maxHeight: '90vh',
     overflowY: 'auto',
+    padding: 40,
+    borderRadius: 32,
     background: '#fff',
-    borderRadius: 22,
-    padding: 22,
+    border: '1px solid #f0f0f0',
+    boxShadow: '0 30px 60px rgba(0,0,0,0.12)',
     transition: '0.2s ease'
   },
+
+  logoWrapper: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: 18
+  },
+
+  logo: {
+    width: 52,
+    height: 52,
+    objectFit: 'contain'
+  },
+
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    marginBottom: 14
+    alignItems: 'flex-start',
+    marginBottom: 18
   },
-  kicker: { fontSize: 12, opacity: 0.5, margin: 0 },
-  title: { fontSize: 20, fontWeight: 800, margin: 0 },
-  close: { border: 'none', background: 'transparent', fontSize: 24 },
-  authorBadge: {
+
+  title: {
+    fontSize: 24,
+    fontWeight: 800,
+    margin: 0,
+    letterSpacing: -0.5
+  },
+
+  subtitle: {
+    fontSize: 13,
+    color: '#86868b',
+    marginTop: 4
+  },
+
+  close: {
+    border: 'none',
+    background: 'transparent',
+    fontSize: 26,
+    cursor: 'pointer',
+    color: '#bbb'
+  },
+
+  author: {
     display: 'flex',
     gap: 12,
     padding: 12,
-    borderRadius: 14,
-    background: '#f5f5f7',
-    marginBottom: 16
+    borderRadius: 16,
+    background: '#f6f6f7',
+    marginBottom: 18
   },
-  authorAvatar: { width: 38, height: 38, borderRadius: 10 },
+
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 12
+  },
+
   authorName: { margin: 0, fontWeight: 700 },
   authorSub: { margin: 0, fontSize: 12, color: '#777' },
-  section: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: 600, marginBottom: 8 },
+
+  section: { marginBottom: 16 },
+
+  label: {
+    fontSize: 13,
+    fontWeight: 600,
+    marginBottom: 8
+  },
+
   grid: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
     gap: 10
   },
+
   card: {
-    padding: 10,
+    padding: 12,
+    borderRadius: 14,
     border: '1px solid #eee',
-    borderRadius: 12,
     cursor: 'pointer',
     textAlign: 'center'
   },
+
   cardActive: {
     background: '#000',
     color: '#fff'
   },
+
   icon: { fontSize: 18 },
-  cardText: { fontSize: 11, marginTop: 5 },
+
+  cardText: { fontSize: 11, marginTop: 6 },
+
   input: {
     width: '100%',
-    padding: 12,
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: 16,
     border: '1px solid #eee',
-    background: '#f7f7f7'
+    background: '#f7f7f7',
+    fontSize: 14,
+    outline: 'none'
   },
+
   suggestions: {
     position: 'absolute',
     width: '100%',
     background: '#fff',
     border: '1px solid #eee',
-    borderRadius: 10,
-    maxHeight: 140,
+    borderRadius: 12,
+    maxHeight: 150,
     overflowY: 'auto',
     zIndex: 10
   },
-  sItem: { padding: 10, cursor: 'pointer' },
+
+  suggestion: {
+    padding: 10,
+    cursor: 'pointer'
+  },
+
   upload: {
     display: 'block',
     border: '2px dashed #ddd',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
     textAlign: 'center',
     cursor: 'pointer',
-    marginBottom: 14
+    marginBottom: 16
   },
-  preview: { width: '100%', borderRadius: 10 },
+
+  preview: {
+    width: '100%',
+    borderRadius: 12
+  },
+
   button: {
     width: '100%',
-    padding: 14,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: 16,
     border: 'none',
     background: '#000',
     color: '#fff',
-    fontWeight: 700
+    fontWeight: 700,
+    fontSize: 15
   }
 }
 

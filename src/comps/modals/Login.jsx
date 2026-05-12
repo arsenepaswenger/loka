@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import loka from '../../assets/loka.png'
 
 function Login({ isOpen, onClose, onSuccess, onSwitchToSignup }) {
   const [email, setEmail] = useState('')
@@ -7,7 +8,6 @@ function Login({ isOpen, onClose, onSuccess, onSwitchToSignup }) {
   if (!isOpen) return null
 
   const handleSubmit = () => {
-    // Basic validation check
     if (email && password) {
       onSuccess({ email, password })
     }
@@ -17,6 +17,11 @@ function Login({ isOpen, onClose, onSuccess, onSwitchToSignup }) {
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
 
+        {/* LOGO */}
+        <div style={styles.logoWrapper}>
+          <img src={loka} alt="Loka" style={styles.logo} />
+        </div>
+
         {/* HEADER */}
         <div style={styles.top}>
           <h2 style={styles.title}>Connexion</h2>
@@ -25,9 +30,6 @@ function Login({ isOpen, onClose, onSuccess, onSwitchToSignup }) {
           </button>
         </div>
 
-        <p style={styles.subtitle}>
-          Ravi de vous revoir sur Loka. Connectez-vous pour accéder au live.
-        </p>
 
         {/* FORM */}
         <div style={styles.form}>
@@ -60,7 +62,7 @@ function Login({ isOpen, onClose, onSuccess, onSwitchToSignup }) {
 
         {/* FOOTER */}
         <p style={styles.bottomText}>
-          Pas encore de compte ?{' '}
+          Pas encore de compte ?
           <span style={styles.link} onClick={onSwitchToSignup}>
             Créer un compte
           </span>
@@ -102,6 +104,18 @@ const styles = {
     border: '1px solid #f0f0f0',
     boxShadow: '0 30px 60px rgba(0,0,0,0.12)',
     color: '#1d1d1f'
+  },
+
+  logoWrapper: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '18px'
+  },
+
+  logo: {
+    width: '54px',
+    height: '54px',
+    objectFit: 'contain'
   },
 
   top: {

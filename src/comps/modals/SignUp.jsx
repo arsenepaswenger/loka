@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { supabase } from '../../supabaseClient'
 import { useNavigate } from 'react-router-dom'
+import loka from '../../assets/loka.png'
 
 export const GABON_LOCATIONS = [
   "Libreville - Nzeng Ayong", "Libreville - Louis", "Libreville - Glass",
@@ -90,7 +91,7 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
       if (profileError) throw profileError
 
       onClose()
-      nav('/dashboard')   // ✅ redirect here
+      nav('/dashboard')
 
     } catch (err) {
       alert(err.message)
@@ -103,15 +104,17 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
     <div style={styles.overlay} onClick={onClose}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
 
-        <div style={styles.header}>
+        {/* LOGO */}
+        <div style={styles.logoWrapper}>
+          <img src={loka} alt="Loka" style={styles.logo} />
+        </div>
+
+        {/* HEADER */}
+        <div style={styles.top}>
           <h2 style={styles.title}>Créer un compte</h2>
           <button style={styles.close} onClick={onClose}>×</button>
         </div>
-
-        <p style={styles.subtitle}>
-          Rejoins Loka et suis ta ville en temps réel.
-        </p>
-
+        {/* FORM */}
         <div style={styles.form}>
           <div style={styles.row}>
             <input name="nom" placeholder="Nom" style={styles.input} onChange={handleChange} />
@@ -149,6 +152,7 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
           <input name="confirmPassword" type="password" placeholder="Confirmer" style={styles.input} onChange={handleChange} />
         </div>
 
+        {/* BUTTON */}
         <button
           style={styles.button}
           onClick={handleSubmit}
@@ -157,7 +161,8 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
           {loading ? "Création..." : "Créer un compte"}
         </button>
 
-        <p style={styles.footer}>
+        {/* FOOTER */}
+        <p style={styles.bottomText}>
           Déjà un compte ?
           <span style={styles.link} onClick={onSwitchToLogin}>
             Connexion
@@ -165,6 +170,17 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
         </p>
 
       </div>
+
+      <style>{`
+        input:focus { 
+          border-color: #000 !important; 
+          background-color: #fff !important;
+          box-shadow: 0 0 0 4px rgba(0,0,0,0.02);
+        }
+        button:active {
+          transform: scale(0.98);
+        }
+      `}</style>
     </div>
   )
 }
@@ -173,7 +189,7 @@ const styles = {
   overlay: {
     position: 'fixed',
     inset: 0,
-    background: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.7)',
     backdropFilter: 'blur(12px)',
     display: 'flex',
     justifyContent: 'center',
@@ -182,60 +198,78 @@ const styles = {
   },
 
   modal: {
-    width: 380,
-    padding: 40,
-    borderRadius: 32,
-    background: '#fff',
-    border: '1px solid #eee',
-    boxShadow: '0 30px 60px rgba(0,0,0,0.12)'
+    width: '380px',
+    padding: '40px',
+    borderRadius: '32px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #f0f0f0',
+    boxShadow: '0 30px 60px rgba(0,0,0,0.12)',
+    color: '#1d1d1f'
   },
 
-  header: {
+  logoWrapper: {
+    display: 'flex',
+    justifyContent: 'center',
+    marginBottom: '18px'
+  },
+
+  logo: {
+    width: '54px',
+    height: '54px',
+    objectFit: 'contain'
+  },
+
+  top: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: '8px'
   },
 
   title: {
-    fontSize: 26,
-    fontWeight: 800,
-    margin: 0
+    fontSize: '26px',
+    fontWeight: '800',
+    margin: 0,
+    letterSpacing: '-0.8px'
   },
 
   close: {
     background: 'transparent',
     border: 'none',
-    fontSize: 28,
+    fontSize: '28px',
     cursor: 'pointer',
-    color: '#bbb'
+    color: '#ccc'
   },
 
   subtitle: {
-    fontSize: 14,
+    fontSize: '14px',
     color: '#86868b',
-    marginBottom: 30
+    marginBottom: '32px',
+    lineHeight: '1.5'
   },
 
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: 14
+    gap: '16px'
   },
 
   row: {
     display: 'flex',
-    gap: 12
+    gap: '12px'
   },
 
   input: {
     width: '100%',
-    padding: 16,
-    borderRadius: 16,
+    boxSizing: 'border-box',
+    padding: '16px',
+    borderRadius: '16px',
     border: '1px solid #efefef',
-    background: '#f9f9fb',
+    backgroundColor: '#f9f9fb',
+    color: '#000',
+    fontSize: '15px',
     outline: 'none',
-    fontSize: 15
+    transition: 'all 0.2s ease'
   },
 
   suggestions: {
@@ -243,43 +277,46 @@ const styles = {
     top: '110%',
     left: 0,
     right: 0,
-    background: '#fff',
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: '16px',
     border: '1px solid #eee',
-    maxHeight: 200,
+    maxHeight: '200px',
     overflowY: 'auto',
     zIndex: 10
   },
 
   suggestion: {
-    padding: 12,
+    padding: '12px',
     cursor: 'pointer'
   },
 
   button: {
-    marginTop: 24,
+    marginTop: '24px',
     width: '100%',
-    padding: 18,
-    borderRadius: 16,
+    padding: '18px',
+    borderRadius: '16px',
     border: 'none',
-    background: '#000',
+    backgroundColor: '#000',
     color: '#fff',
-    fontWeight: 700,
-    cursor: 'pointer'
+    fontWeight: '700',
+    fontSize: '16px',
+    cursor: 'pointer',
+    boxShadow: '0 10px 20px rgba(0,0,0,0.1)',
+    transition: 'all 0.2s ease'
   },
 
-  footer: {
-    marginTop: 20,
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#86868b'
+  bottomText: {
+    marginTop: '24px',
+    fontSize: '14px',
+    color: '#86868b',
+    textAlign: 'center'
   },
 
   link: {
-    marginLeft: 6,
-    fontWeight: 700,
     color: '#000',
-    cursor: 'pointer'
+    fontWeight: '700',
+    cursor: 'pointer',
+    marginLeft: '5px'
   }
 }
 
