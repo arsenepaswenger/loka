@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import loka from '../../assets/loka.png'
 
 const Navbar = ({ onLoginClick, onSignupClick }) => {

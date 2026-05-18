@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import lokaLogo from '../../assets/loka.png'
-import { INCIDENT_TYPES } from '../../pages/dash/Dashboard'
+import { INCIDENT_TYPES } from '../../constants'
 import { supabase } from '../../supabaseClient'
 
 function Sidebar({

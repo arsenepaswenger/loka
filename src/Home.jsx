@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Navbar from './comps/nav/Navbar'
 import Login from './comps/modals/Login'
 import SignUp from './comps/modals/SignUp'
 import Dashboard from './pages/dash/Dashboard'
+import { supabase } from './supabaseClient'
+import { getProfileForSession } from './authProfile'
 
 function Home() {
   const [loginOpen, setLoginOpen] = useState(false)
   const [signupOpen, setSignupOpen] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(
-    localStorage.getItem('isLoggedIn') === 'true'
-  )
+  const [session, setSession] = useState(null)
+  const [userProfile, setUserProfile] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
 
   useEffect(() => {
     document.body.style.margin = '0'
@@ -19,24 +21,93 @@ function Home() {
     document.documentElement.style.padding = '0'
   }, [])
 
+  useEffect(() => {
+    let active = true
+
+    const applySession = async (currentSession) => {
+      setSession(currentSession)
+
+      if (!currentSession) {
+        setUserProfile(null)
+        return
+      }
+
+      try {
+        const profile = await getProfileForSession(currentSession)
+
+        if (active) {
+          setUserProfile(profile)
+        }
+      } catch (error) {
+        console.error('Profile load error:', error.message)
+
+        if (active) {
+          setUserProfile({
+            id: currentSession.user.id,
+            email: currentSession.user.email,
+            emailConfirmedAt: currentSession.user.email_confirmed_at
+          })
+        }
+      }
+    }
+
+    const loadSession = async () => {
+      const { data, error } = await supabase.auth.getSession()
+
+      if (!error) {
+        await applySession(data.session)
+      }
+
+      if (active) {
+        setCheckingSession(false)
+      }
+    }
+
+    loadSession()
+
+    const { data } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setTimeout(() => {
+        applySession(currentSession)
+      }, 0)
+    })
+
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (checkingSession || session) return
+
+    const incidentId = new URLSearchParams(window.location.search).get('incident')
+
+    if (incidentId) {
+      const timeoutId = window.setTimeout(() => {
+        setLoginOpen(true)
+      }, 0)
+
+      return () => window.clearTimeout(timeoutId)
+    }
+  }, [checkingSession, session])
+
   const handleAuthSuccess = () => {
     setLoginOpen(false)
     setSignupOpen(false)
     setIsLoading(true)
 
     setTimeout(() => {
-      localStorage.setItem('isLoggedIn', 'true')
-      setIsLoggedIn(true)
       setIsLoading(false)
     }, 1500)
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn')
-    setIsLoggedIn(false)
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setSession(null)
+    setUserProfile(null)
   }
 
-  if (isLoading) {
+  if (checkingSession || isLoading) {
     return (
       <div style={styles.loaderContainer}>
         <div className="spinner"></div>
@@ -61,8 +132,8 @@ function Home() {
     )
   }
 
-  if (isLoggedIn) {
-    return <Dashboard onLogout={handleLogout} />
+  if (session) {
+    return <Dashboard onLogout={handleLogout} userProfile={userProfile ?? {}} />
   }
 
   return (

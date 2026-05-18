@@ -1,19 +1,9 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { supabase } from '../../supabaseClient'
-import { useNavigate } from 'react-router-dom'
 import loka from '../../assets/loka.png'
-
-export const GABON_LOCATIONS = [
-  "Libreville - Nzeng Ayong", "Libreville - Louis", "Libreville - Glass",
-  "Libreville - Oloumi", "Libreville - Petit Paris", "Libreville - Montagne Sainte",
-  "Akanda - Cap Estérias", "Owendo - Alénakiri",
-  "Port-Gentil - Centre Ville", "Franceville - Poto-Poto",
-  "Oyem", "Bitam", "Lambaréné", "Mouila", "Tchibanga"
-].sort()
+import { GABON_LOCATIONS } from '../../constants'
 
 function SignUp({ isOpen, onClose, onSwitchToLogin }) {
-  const nav = useNavigate()
-
   const [form, setForm] = useState({
     nom: '',
     prenom: '',
@@ -60,10 +50,11 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
         options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
           data: {
             nom: form.nom,
             prenom: form.prenom,
@@ -75,23 +66,8 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
 
       if (error) throw error
 
-      const user = data?.user
-      if (!user) throw new Error("Utilisateur introuvable")
-
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: user.id,
-          nom: form.nom,
-          prenom: form.prenom,
-          phone: form.phone,
-          location: form.location
-        })
-
-      if (profileError) throw profileError
-
+      alert("Vérifie ton email pour confirmer ton compte.")
       onClose()
-      nav('/dashboard')
 
     } catch (err) {
       alert(err.message)

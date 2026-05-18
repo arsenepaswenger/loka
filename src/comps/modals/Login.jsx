@@ -1,15 +1,32 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import { supabase } from '../../supabaseClient'
 import loka from '../../assets/loka.png'
 
 function Login({ isOpen, onClose, onSuccess, onSwitchToSignup }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
 
   if (!isOpen) return null
 
-  const handleSubmit = () => {
-    if (email && password) {
-      onSuccess({ email, password })
+  const handleSubmit = async () => {
+    if (loading || !email || !password) return
+
+    setLoading(true)
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (error) throw error
+
+      onSuccess()
+    } catch (error) {
+      alert(error.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -56,8 +73,8 @@ function Login({ isOpen, onClose, onSuccess, onSwitchToSignup }) {
         </div>
 
         {/* SUBMIT */}
-        <button style={styles.button} onClick={handleSubmit}>
-          Se connecter
+        <button style={styles.button} onClick={handleSubmit} disabled={loading}>
+          {loading ? 'Connexion...' : 'Se connecter'}
         </button>
 
         {/* FOOTER */}

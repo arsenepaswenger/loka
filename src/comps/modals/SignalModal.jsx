@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { GABON_LOCATIONS } from './SignUp'
-import { supabase } from '../../supabaseClient'
+import { useState } from 'react'
+import { GABON_LOCATIONS } from '../../constants'
 import loka from '../../assets/loka.png'
 
 const INCIDENT_TYPES = [
@@ -14,8 +13,7 @@ const INCIDENT_TYPES = [
   { id: 'water', label: "Coupure d'eau", icon: '💧' },
 ]
 
-function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
-  const [mounted, setMounted] = useState(false)
+function SignalModal({ isOpen, onClose, onSubmit }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [form, setForm] = useState({
@@ -29,20 +27,10 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
   const [preview, setPreview] = useState(null)
   const [suggestions, setSuggestions] = useState([])
 
-  const authorName =
-    userProfile.prenom && userProfile.nom
-      ? `${userProfile.prenom} ${userProfile.nom}`
-      : userProfile.email ?? 'Anonyme'
-
-  useEffect(() => {
-    if (isOpen) setMounted(true)
-  }, [isOpen])
-
-  if (!isOpen && !mounted) return null
+  if (!isOpen) return null
 
   const close = () => {
-    setMounted(false)
-    setTimeout(onClose, 180)
+    onClose()
   }
 
   const update = (key, value) => {
@@ -71,65 +59,34 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
     setPreview(URL.createObjectURL(file))
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!form.type || !form.title || isSubmitting) return
 
     setIsSubmitting(true)
 
-    try {
-      const { data, error } = await supabase
-        .from('incidents')
-        .insert([
-          {
-            type: form.type,
-            title: form.title,
-            description: form.desc,
-            location: form.location,
-            image: null,
-            author_id: userProfile.id,
-            author_name: authorName,
-            author_location: userProfile.location ?? '',
-            coords: null,
-            created_at: new Date().toISOString()
-          }
-        ])
-        .select()
+    if (onSubmit) onSubmit(form)
 
-      if (error) throw error
+    setForm({
+      type: '',
+      title: '',
+      desc: '',
+      location: '',
+      image: null
+    })
 
-      if (onSubmit) onSubmit(data[0])
-
-      setForm({
-        type: '',
-        title: '',
-        desc: '',
-        location: '',
-        image: null
-      })
-
-      setPreview(null)
-      setSuggestions([])
-      close()
-
-    } catch (error) {
-      alert('Erreur lors de l’envoi du signalement')
-    } finally {
-      setIsSubmitting(false)
-    }
+    setPreview(null)
+    setSuggestions([])
+    setIsSubmitting(false)
+    close()
   }
 
   const canSend = form.type && form.title && !isSubmitting
 
   return (
-    <div onClick={close} style={{ ...styles.overlay, opacity: mounted ? 1 : 0 }}>
+    <div onClick={close} style={styles.overlay}>
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{
-          ...styles.modal,
-          transform: mounted
-            ? 'translateY(0) scale(1)'
-            : 'translateY(20px) scale(0.98)'
-        }}
+        style={styles.modal}
       >
 
         {/* LOGO */}
@@ -225,7 +182,7 @@ function SignalModal({ isOpen, onClose, onSubmit, userProfile = {} }) {
           ) : (
             '📷 Ajouter une photo'
           )}
-          <input type="file" hidden onChange={handleFile} />
+          <input type="file" accept="image/*" hidden onChange={handleFile} />
         </label>
 
         {/* BUTTON */}

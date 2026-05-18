@@ -4,14 +4,14 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import './index.css'
 
 import Home from './Home.jsx'
-import Dashboard from './pages/dash/Dashboard.jsx'
+import ProtectedDashboard from './ProtectedDashboard.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<ProtectedDashboard />} />
       </Routes>
     </BrowserRouter>
   </StrictMode>

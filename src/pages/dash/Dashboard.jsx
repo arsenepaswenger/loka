@@ -1,26 +1,152 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import Sidebar from '../../comps/side/Sidebar'
 import SignalModal from '../../comps/modals/SignalModal'
 import { supabase } from '../../supabaseClient'
+import { INCIDENT_TYPES } from '../../constants'
 
-export const INCIDENT_TYPES = [
-  { id: 'accident', icon: '🚗', label: 'Accidents' },
-  { id: 'traffic', icon: '🚦', label: 'Trafic' },
-  { id: 'police', icon: '👮', label: 'Police' },
-  { id: 'pothole', icon: '🕳️', label: 'Nids de poule' },
-  { id: 'protest', icon: '📢', label: 'Manifestations' },
-  { id: 'roadblock', icon: '🚧', label: 'Routes barrées' },
-  { id: 'power', icon: '⚡', label: 'Coupure élec.' },
-  { id: 'water', icon: '💧', label: 'Coupure eau' }
-]
+const INCIDENT_IMAGES_BUCKET = 'incident-images'
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+const getImageExtension = (file) => {
+  const extension = file.name.split('.').pop()?.toLowerCase()
+
+  if (extension && /^[a-z0-9]+$/.test(extension)) {
+    return extension
+  }
+
+  return file.type.split('/')[1] || 'jpg'
+}
+
+const uploadIncidentImage = async (file, userId) => {
+  if (!file) return null
+
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Le fichier doit être une image')
+  }
+
+  if (file.size > MAX_IMAGE_SIZE) {
+    throw new Error('La photo ne doit pas dépasser 5 Mo')
+  }
+
+  const extension = getImageExtension(file)
+  const path = `${userId}/${crypto.randomUUID()}.${extension}`
+
+  const { error } = await supabase.storage
+    .from(INCIDENT_IMAGES_BUCKET)
+    .upload(path, file, {
+      cacheControl: '3600',
+      contentType: file.type,
+      upsert: false
+    })
+
+  if (error) throw error
+
+  const { data } = supabase.storage
+    .from(INCIDENT_IMAGES_BUCKET)
+    .getPublicUrl(path)
+
+  return {
+    path,
+    url: data.publicUrl
+  }
+}
+
+const createMarkerElement = (alert, type) => {
+  const wrapper = document.createElement('div')
+  wrapper.className = 'marker-wrapper'
+
+  const icon = type?.icon ?? '⚠️'
+  const imageUrl = typeof alert.image === 'string' && alert.image.trim()
+    ? alert.image
+    : ''
+
+  if (imageUrl) {
+    const marker = document.createElement('div')
+    marker.className = 'marker-photo'
+
+    const image = document.createElement('img')
+    image.src = imageUrl
+    image.onerror = () => {
+      image.src = 'https://placehold.co/100x100?text=Incident'
+    }
+
+    const badge = document.createElement('div')
+    badge.className = 'badge'
+    badge.textContent = icon
+
+    marker.append(image, badge)
+    wrapper.append(marker)
+  } else {
+    const marker = document.createElement('div')
+    marker.className = 'marker-simple'
+    marker.textContent = icon
+    wrapper.append(marker)
+  }
+
+  return wrapper
+}
+
+const createPopupElement = (alert, type) => {
+  const popup = document.createElement('div')
+  popup.className = 'popup'
+
+  const imageUrl = typeof alert.image === 'string' && alert.image.trim()
+    ? alert.image
+    : ''
+
+  if (imageUrl) {
+    const image = document.createElement('img')
+    image.src = imageUrl
+    image.className = 'popup-img'
+    popup.append(image)
+  }
+
+  const body = document.createElement('div')
+  body.className = 'popup-body'
+
+  const label = document.createElement('strong')
+  label.textContent = type?.label ?? 'Signalement'
+
+  const title = document.createElement('h3')
+  title.style.margin = '5px 0'
+  title.textContent = alert.title ?? ''
+
+  const location = document.createElement('p')
+  location.style.fontSize = '12px'
+  location.style.color = '#666'
+  location.style.marginBottom = '5px'
+  location.textContent = `📍 ${alert.location ?? ''}`
+
+  const description = document.createElement('p')
+  description.style.fontSize = '13px'
+  description.textContent = alert.description ?? ''
+
+  const separator = document.createElement('hr')
+  separator.style.border = 'none'
+  separator.style.borderTop = '1px solid #eee'
+  separator.style.margin = '10px 0'
+
+  const author = document.createElement('small')
+  author.textContent = `Par: ${alert.author_name ?? 'Anonyme'}`
+
+  body.append(label, title, location, description, separator, author)
+  popup.append(body)
+
+  return popup
+}
+
+const hasValidCoords = (alert) =>
+  Number.isFinite(alert?.coords?.lat) && Number.isFinite(alert?.coords?.lng)
 
 function Dashboard({ onLogout, userProfile = {} }) {
   const mapContainer = useRef(null)
   const mapRef = useRef(null)
   const tempMarker = useRef(null)
   const markersRef = useRef([])
+  const markerByIncidentId = useRef(new Map())
+  const focusedIncidentId = useRef(null)
 
   const [alerts, setAlerts] = useState([])
   const [filters, setFilters] = useState(INCIDENT_TYPES.map(t => t.id))
@@ -65,7 +191,11 @@ function Dashboard({ onLogout, userProfile = {} }) {
     mapRef.current.addControl(new maplibregl.NavigationControl(), 'top-right')
 
     mapRef.current.on('load', () => {
-      try { geolocate.trigger() } catch (e) {}
+      try {
+        geolocate.trigger()
+      } catch (error) {
+        console.warn('Geolocation unavailable:', error)
+      }
     })
 
     return () => {
@@ -81,57 +211,65 @@ function Dashboard({ onLogout, userProfile = {} }) {
     // Clear existing markers
     markersRef.current.forEach(m => m.remove())
     markersRef.current = []
+    markerByIncidentId.current.clear()
 
     alerts.forEach(alert => {
       // Check if alert has coords and matches active filters
-      if (!alert?.coords || !filters.includes(alert.type)) return
+      const incidentId = new URLSearchParams(window.location.search).get('incident')
+      const isLinkedIncident = incidentId && alert.id === incidentId
+
+      if (!hasValidCoords(alert) || (!filters.includes(alert.type) && !isLinkedIncident)) return
 
       const type = INCIDENT_TYPES.find(t => t.id === alert.type)
-      const el = document.createElement('div')
-      el.className = 'marker-wrapper'
-
-      const icon = type?.icon ?? '⚠️'
-      
-      if (alert.image) {
-        el.innerHTML = `
-          <div class="marker-photo">
-            <img src="${alert.image}" onerror="this.src='https://placehold.co/100x100?text=Incident'"/>
-            <div class="badge">${icon}</div>
-          </div>
-        `
-      } else {
-        el.innerHTML = `<div class="marker-simple">${icon}</div>`
-      }
-
-      const popupHTML = `
-        <div class="popup">
-          ${alert.image ? `<img src="${alert.image}" class="popup-img" />` : ''}
-          <div class="popup-body">
-            <strong>${type?.label ?? 'Signalement'}</strong>
-            <h3 style="margin: 5px 0">${alert.title ?? ''}</h3>
-            <p style="font-size: 12px; color: #666; margin-bottom: 5px">📍 ${alert.location ?? ''}</p>
-            <p style="font-size: 13px;">${alert.description ?? ''}</p>
-            <hr style="border: none; border-top: 1px solid #eee; margin: 10px 0" />
-            <small>Par: ${alert.author_name ?? 'Anonyme'}</small>
-          </div>
-        </div>
-      `
+      const element = createMarkerElement(alert, type)
+      const popupElement = createPopupElement(alert, type)
 
       try {
-        const marker = new maplibregl.Marker({ element: el })
+        const marker = new maplibregl.Marker({ element })
           .setLngLat([alert.coords.lng, alert.coords.lat]) // Ensure correct array/object format
-          .setPopup(new maplibregl.Popup({ offset: 35, maxWidth: '250px' }).setHTML(popupHTML))
+          .setPopup(new maplibregl.Popup({ offset: 35, maxWidth: '250px' }).setDOMContent(popupElement))
           .addTo(mapRef.current)
 
         markersRef.current.push(marker)
+        markerByIncidentId.current.set(alert.id, marker)
       } catch (e) {
         console.error("Marker error:", e)
       }
     })
   }, [alerts, filters])
 
+  useEffect(() => {
+    if (!mapRef.current || alerts.length === 0) return
+
+    const incidentId = new URLSearchParams(window.location.search).get('incident')
+    if (!incidentId || focusedIncidentId.current === incidentId) return
+
+    const target = alerts.find(alert => alert.id === incidentId)
+    if (!hasValidCoords(target)) return
+
+    focusedIncidentId.current = incidentId
+
+    mapRef.current.flyTo({
+      center: [target.coords.lng, target.coords.lat],
+      zoom: 16,
+      essential: true
+    })
+
+    const openPopup = () => {
+      const marker = markerByIncidentId.current.get(incidentId)
+
+      if (marker && !marker.getPopup().isOpen()) {
+        marker.togglePopup()
+      }
+    }
+
+    window.setTimeout(openPopup, 450)
+  }, [alerts, filters])
+
   // 4. STEP 1: MODAL SUBMIT (OPEN PLACING MODE)
   const handleModalSubmit = (formData) => {
+    if (!mapRef.current) return
+
     setPending(formData)
     setModalOpen(false)
     setPlacing(true)
@@ -151,14 +289,23 @@ function Dashboard({ onLogout, userProfile = {} }) {
   // 5. STEP 2: CONFIRM & SAVE TO DATABASE
   const confirm = async () => {
     if (!tempMarker.current || !pending) return
+
+    if (!userProfile.id) {
+      alert("Impossible d'identifier l'utilisateur connecté")
+      return
+    }
+
     setLoading(true)
 
     const coords = tempMarker.current.getLngLat()
+    let uploadedImage = null
 
     try {
       const authorName = userProfile.prenom && userProfile.nom
         ? `${userProfile.prenom} ${userProfile.nom}`
         : userProfile.email ?? 'Anonyme'
+
+      uploadedImage = await uploadIncidentImage(pending.image, userProfile.id)
 
       // INSERT INTO SUPABASE
       const { data, error } = await supabase
@@ -168,7 +315,7 @@ function Dashboard({ onLogout, userProfile = {} }) {
           title: pending.title,
           description: pending.desc || '', // map 'desc' from modal to DB 'description'
           location: pending.location,
-          image: pending.image, // URL from storage or null
+          image: uploadedImage?.url ?? null,
           author_id: userProfile.id,
           author_name: authorName,
           author_location: userProfile.location ?? '',
@@ -191,7 +338,14 @@ function Dashboard({ onLogout, userProfile = {} }) {
       setPlacing(false)
     } catch (err) {
       console.error("Confirm error:", err.message)
-      alert("Erreur lors de la sauvegarde")
+
+      if (uploadedImage?.path) {
+        await supabase.storage
+          .from(INCIDENT_IMAGES_BUCKET)
+          .remove([uploadedImage.path])
+      }
+
+      alert(err.message || "Erreur lors de la sauvegarde")
     } finally {
       setLoading(false)
     }
