@@ -83,7 +83,7 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
   }
 
   return (
-    <div style={styles.overlay} onClick={onClose}>
+    <div style={styles.overlay}>
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
 
         {/* LOGO */}
