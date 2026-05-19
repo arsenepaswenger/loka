@@ -4,7 +4,11 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import Sidebar from '../../comps/side/Sidebar'
 import SignalModal from '../../comps/modals/SignalModal'
 import { supabase } from '../../supabaseClient'
-import { INCIDENT_TYPES } from '../../constants'
+import {
+  DEFAULT_INCIDENT_DURATION_MINUTES,
+  INCIDENT_DURATION_OPTIONS,
+  INCIDENT_TYPES
+} from '../../constants'
 
 const INCIDENT_IMAGES_BUCKET = 'incident-images'
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -140,6 +144,48 @@ const createPopupElement = (alert, type) => {
 const hasValidCoords = (alert) =>
   Number.isFinite(alert?.coords?.lat) && Number.isFinite(alert?.coords?.lng)
 
+const getIncidentDurationMinutes = (type, durationId) => {
+  const selectedDuration = INCIDENT_DURATION_OPTIONS.find(option => option.id === durationId)
+
+  return selectedDuration?.minutes ?? DEFAULT_INCIDENT_DURATION_MINUTES[type] ?? 360
+}
+
+const getExpiryDate = (type, durationId) => {
+  const minutes = getIncidentDurationMinutes(type, durationId)
+
+  return new Date(Date.now() + minutes * 60 * 1000).toISOString()
+}
+
+const getTimeAgo = (dateValue) => {
+  const date = new Date(dateValue)
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000))
+
+  if (diffMinutes < 1) return 'À l’instant'
+  if (diffMinutes < 60) return `${diffMinutes} min`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+
+  if (diffHours < 24) return `${diffHours} h`
+
+  return `${Math.floor(diffHours / 24)} j`
+}
+
+const getTimeLeft = (dateValue) => {
+  if (!dateValue) return ''
+
+  const date = new Date(dateValue)
+  const diffMinutes = Math.ceil((date.getTime() - Date.now()) / 60000)
+
+  if (diffMinutes <= 0) return 'Expire bientôt'
+  if (diffMinutes < 60) return `${diffMinutes} min restantes`
+
+  const diffHours = Math.ceil(diffMinutes / 60)
+
+  if (diffHours < 24) return `${diffHours} h restantes`
+
+  return `${Math.ceil(diffHours / 24)} j restants`
+}
+
 function Dashboard({ onLogout, userProfile = {} }) {
   const mapContainer = useRef(null)
   const mapRef = useRef(null)
@@ -161,7 +207,10 @@ function Dashboard({ onLogout, userProfile = {} }) {
       const { data, error } = await supabase
         .from('incidents')
         .select('*')
+        .eq('status', 'active')
+        .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false })
+        .limit(50)
 
       if (!error && data) {
         setAlerts(data)
@@ -218,7 +267,12 @@ function Dashboard({ onLogout, userProfile = {} }) {
       const incidentId = new URLSearchParams(window.location.search).get('incident')
       const isLinkedIncident = incidentId && alert.id === incidentId
 
-      if (!hasValidCoords(alert) || (!filters.includes(alert.type) && !isLinkedIncident)) return
+      if (
+        alert.status !== 'active' ||
+        (alert.expires_at && new Date(alert.expires_at) <= new Date()) ||
+        !hasValidCoords(alert) ||
+        (!filters.includes(alert.type) && !isLinkedIncident)
+      ) return
 
       const type = INCIDENT_TYPES.find(t => t.id === alert.type)
       const element = createMarkerElement(alert, type)
@@ -286,6 +340,24 @@ function Dashboard({ onLogout, userProfile = {} }) {
       .addTo(mapRef.current)
   }
 
+  const focusIncident = (alert) => {
+    if (!mapRef.current || !hasValidCoords(alert)) return
+
+    mapRef.current.flyTo({
+      center: [alert.coords.lng, alert.coords.lat],
+      zoom: 16,
+      essential: true
+    })
+
+    window.setTimeout(() => {
+      const marker = markerByIncidentId.current.get(alert.id)
+
+      if (marker && !marker.getPopup().isOpen()) {
+        marker.togglePopup()
+      }
+    }, 450)
+  }
+
   // 5. STEP 2: CONFIRM & SAVE TO DATABASE
   const confirm = async () => {
     if (!tempMarker.current || !pending) return
@@ -320,6 +392,8 @@ function Dashboard({ onLogout, userProfile = {} }) {
           author_name: authorName,
           author_location: userProfile.location ?? '',
           coords: { lat: coords.lat, lng: coords.lng },
+          status: 'active',
+          expires_at: getExpiryDate(pending.type, pending.duration),
           created_at: new Date().toISOString()
         }])
         .select()
@@ -369,6 +443,41 @@ function Dashboard({ onLogout, userProfile = {} }) {
 
       <main style={styles.main}>
         <div ref={mapContainer} style={styles.map} />
+
+        <aside style={styles.recentPanel}>
+          <div style={styles.recentHeader}>
+            <p style={styles.recentEyebrow}>En direct</p>
+            <h2 style={styles.recentTitle}>Incidents récents</h2>
+          </div>
+
+          <div style={styles.recentList}>
+            {alerts.length === 0 && (
+              <p style={styles.emptyState}>Aucun incident actif</p>
+            )}
+
+            {alerts.slice(0, 8).map(alert => {
+              const type = INCIDENT_TYPES.find(item => item.id === alert.type)
+
+              return (
+                <button
+                  key={alert.id}
+                  type="button"
+                  style={styles.recentItem}
+                  onClick={() => focusIncident(alert)}
+                >
+                  <span style={styles.recentIcon}>{type?.icon ?? '⚠️'}</span>
+                  <span style={styles.recentContent}>
+                    <strong style={styles.recentItemTitle}>{alert.title}</strong>
+                    <span style={styles.recentMeta}>
+                      {alert.location || 'Libreville'} · {getTimeAgo(alert.created_at)}
+                    </span>
+                    <span style={styles.recentExpiry}>{getTimeLeft(alert.expires_at)}</span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </aside>
 
         {placing && (
           <div style={styles.bar}>
@@ -428,6 +537,95 @@ const styles = {
   page: { display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' },
   main: { flex: 1, position: 'relative' },
   map: { position: 'absolute', inset: 0 },
+  recentPanel: {
+    position: 'absolute',
+    top: 18,
+    right: 18,
+    width: 320,
+    maxHeight: 'calc(100vh - 36px)',
+    borderRadius: 24,
+    background: 'rgba(15,15,15,0.42)',
+    backdropFilter: 'blur(28px)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    boxShadow: '0 25px 80px rgba(0,0,0,0.24)',
+    padding: 18,
+    zIndex: 90,
+    color: '#fff',
+    overflow: 'hidden'
+  },
+  recentHeader: {
+    marginBottom: 14
+  },
+  recentEyebrow: {
+    margin: 0,
+    fontSize: 10,
+    letterSpacing: '1.8px',
+    textTransform: 'uppercase',
+    color: 'rgba(255,255,255,0.52)'
+  },
+  recentTitle: {
+    margin: '4px 0 0',
+    fontSize: 18,
+    fontWeight: 800
+  },
+  recentList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+    maxHeight: 'calc(100vh - 130px)',
+    overflowY: 'auto'
+  },
+  emptyState: {
+    margin: '16px 0 6px',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.58)'
+  },
+  recentItem: {
+    width: '100%',
+    border: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.07)',
+    color: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    display: 'flex',
+    gap: 12,
+    textAlign: 'left',
+    cursor: 'pointer'
+  },
+  recentIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    background: 'rgba(255,255,255,0.12)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0
+  },
+  recentContent: {
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 3
+  },
+  recentItemTitle: {
+    fontSize: 13,
+    lineHeight: 1.25,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  recentMeta: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.58)',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis'
+  },
+  recentExpiry: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.78)'
+  },
   bar: {
     position: 'absolute',
     top: 20,

@@ -16,3 +16,24 @@ export const INCIDENT_TYPES = [
   { id: 'power', icon: '⚡', label: 'Coupure élec.' },
   { id: 'water', icon: '💧', label: 'Coupure eau' }
 ]
+
+export const INCIDENT_DURATION_OPTIONS = [
+  { id: '30m', label: '30 min', minutes: 30 },
+  { id: '1h', label: '1 h', minutes: 60 },
+  { id: '3h', label: '3 h', minutes: 180 },
+  { id: '12h', label: '12 h', minutes: 720 },
+  { id: '1d', label: '1 jour', minutes: 1440 },
+  { id: '2d', label: '2 jours', minutes: 2880 },
+  { id: 'unknown', label: 'Je ne sais pas', minutes: null }
+]
+
+export const DEFAULT_INCIDENT_DURATION_MINUTES = {
+  accident: 120,
+  traffic: 60,
+  police: 120,
+  pothole: 43200,
+  protest: 720,
+  roadblock: 1440,
+  power: 360,
+  water: 360
+}

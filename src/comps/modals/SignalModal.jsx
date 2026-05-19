@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { GABON_LOCATIONS } from '../../constants'
+import { GABON_LOCATIONS, INCIDENT_DURATION_OPTIONS } from '../../constants'
 import loka from '../../assets/loka.png'
 
 const INCIDENT_TYPES = [
@@ -21,6 +21,7 @@ function SignalModal({ isOpen, onClose, onSubmit }) {
     title: '',
     desc: '',
     location: '',
+    duration: 'unknown',
     image: null
   })
 
@@ -71,6 +72,7 @@ function SignalModal({ isOpen, onClose, onSubmit }) {
       title: '',
       desc: '',
       location: '',
+      duration: 'unknown',
       image: null
     })
 
@@ -172,6 +174,26 @@ function SignalModal({ isOpen, onClose, onSubmit }) {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* DURATION */}
+        <div style={styles.section}>
+          <p style={styles.label}>Durée estimée</p>
+          <div style={styles.durationGrid}>
+            {INCIDENT_DURATION_OPTIONS.map(option => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => update('duration', option.id)}
+                style={{
+                  ...styles.durationOption,
+                  ...(form.duration === option.id ? styles.durationActive : {})
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -351,6 +373,29 @@ const styles = {
   suggestion: {
     padding: 10,
     cursor: 'pointer'
+  },
+
+  durationGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: 8
+  },
+
+  durationOption: {
+    border: '1px solid #eee',
+    background: '#f7f7f7',
+    borderRadius: 12,
+    padding: '10px 8px',
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: 'pointer',
+    color: '#1d1d1f'
+  },
+
+  durationActive: {
+    background: '#000',
+    color: '#fff',
+    borderColor: '#000'
   },
 
   upload: {
