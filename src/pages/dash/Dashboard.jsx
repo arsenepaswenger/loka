@@ -200,6 +200,7 @@ function Dashboard({ onLogout, userProfile = {} }) {
   const [placing, setPlacing] = useState(false)
   const [pending, setPending] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [recentOpen, setRecentOpen] = useState(true)
 
   // 1. FETCH INITIAL DATA FROM SUPABASE
   useEffect(() => {
@@ -358,6 +359,27 @@ function Dashboard({ onLogout, userProfile = {} }) {
     }, 450)
   }
 
+  const removeIncident = async (alertId) => {
+    if (!userProfile.id) return
+
+    const { error } = await supabase
+      .from('incidents')
+      .update({
+        status: 'removed',
+        removed_at: new Date().toISOString(),
+        removed_by: userProfile.id
+      })
+      .eq('id', alertId)
+      .eq('author_id', userProfile.id)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setAlerts(prev => prev.filter(alert => alert.id !== alertId))
+  }
+
   // 5. STEP 2: CONFIRM & SAVE TO DATABASE
   const confirm = async () => {
     if (!tempMarker.current || !pending) return
@@ -444,10 +466,30 @@ function Dashboard({ onLogout, userProfile = {} }) {
       <main style={styles.main}>
         <div ref={mapContainer} style={styles.map} />
 
-        <aside style={styles.recentPanel}>
+        <button
+          type="button"
+          style={{
+            ...styles.recentToggle,
+            right: recentOpen ? 356 : 18
+          }}
+          onClick={() => setRecentOpen(open => !open)}
+          aria-label={recentOpen ? 'Masquer les incidents récents' : 'Afficher les incidents récents'}
+          title={recentOpen ? 'Masquer les incidents récents' : 'Afficher les incidents récents'}
+        >
+          {recentOpen ? '→' : '←'}
+        </button>
+
+        <aside
+          style={{
+            ...styles.recentPanel,
+            transform: recentOpen ? 'translateX(0)' : 'translateX(116%)'
+          }}
+        >
           <div style={styles.recentHeader}>
-            <p style={styles.recentEyebrow}>En direct</p>
-            <h2 style={styles.recentTitle}>Incidents récents</h2>
+            <div>
+              <p style={styles.recentEyebrow}>En direct</p>
+              <h2 style={styles.recentTitle}>Incidents récents</h2>
+            </div>
           </div>
 
           <div style={styles.recentList}>
@@ -459,21 +501,37 @@ function Dashboard({ onLogout, userProfile = {} }) {
               const type = INCIDENT_TYPES.find(item => item.id === alert.type)
 
               return (
-                <button
+                <div
                   key={alert.id}
-                  type="button"
                   style={styles.recentItem}
-                  onClick={() => focusIncident(alert)}
                 >
-                  <span style={styles.recentIcon}>{type?.icon ?? '⚠️'}</span>
-                  <span style={styles.recentContent}>
-                    <strong style={styles.recentItemTitle}>{alert.title}</strong>
-                    <span style={styles.recentMeta}>
-                      {alert.location || 'Libreville'} · {getTimeAgo(alert.created_at)}
+                  <button
+                    type="button"
+                    style={styles.recentMain}
+                    onClick={() => focusIncident(alert)}
+                  >
+                    <span style={styles.recentIcon}>{type?.icon ?? '⚠️'}</span>
+                    <span style={styles.recentContent}>
+                      <strong style={styles.recentItemTitle}>{alert.title}</strong>
+                      <span style={styles.recentMeta}>
+                        {alert.location || 'Libreville'} · {getTimeAgo(alert.created_at)}
+                      </span>
+                      <span style={styles.recentExpiry}>{getTimeLeft(alert.expires_at)}</span>
                     </span>
-                    <span style={styles.recentExpiry}>{getTimeLeft(alert.expires_at)}</span>
-                  </span>
-                </button>
+                  </button>
+
+                  {alert.author_id === userProfile.id && (
+                    <button
+                      type="button"
+                      style={styles.removeIncident}
+                      onClick={() => removeIncident(alert.id)}
+                      aria-label="Supprimer ce signalement"
+                      title="Supprimer ce signalement"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               )
             })}
           </div>
@@ -537,6 +595,22 @@ const styles = {
   page: { display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' },
   main: { flex: 1, position: 'relative' },
   map: { position: 'absolute', inset: 0 },
+  recentToggle: {
+    position: 'absolute',
+    top: 24,
+    width: 42,
+    height: 42,
+    borderRadius: '50%',
+    border: '1px solid rgba(255,255,255,0.12)',
+    background: 'rgba(20,20,20,0.62)',
+    backdropFilter: 'blur(20px)',
+    color: '#fff',
+    fontSize: 17,
+    cursor: 'pointer',
+    zIndex: 120,
+    transition: 'right .45s cubic-bezier(.16,1,.3,1), background .2s ease',
+    fontFamily: 'Inter, system-ui, sans-serif'
+  },
   recentPanel: {
     position: 'absolute',
     top: 18,
@@ -551,10 +625,15 @@ const styles = {
     padding: 18,
     zIndex: 90,
     color: '#fff',
-    overflow: 'hidden'
+    overflow: 'hidden',
+    transition: 'transform .45s cubic-bezier(.16,1,.3,1)',
+    fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, system-ui, sans-serif'
   },
   recentHeader: {
-    marginBottom: 14
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16
   },
   recentEyebrow: {
     margin: 0,
@@ -566,7 +645,9 @@ const styles = {
   recentTitle: {
     margin: '4px 0 0',
     fontSize: 18,
-    fontWeight: 800
+    fontWeight: 800,
+    letterSpacing: 0,
+    lineHeight: 1.15
   },
   recentList: {
     display: 'flex',
@@ -584,13 +665,23 @@ const styles = {
     width: '100%',
     border: '1px solid rgba(255,255,255,0.08)',
     background: 'rgba(255,255,255,0.07)',
-    color: '#fff',
     borderRadius: 16,
+    display: 'flex',
+    alignItems: 'stretch',
+    overflow: 'hidden'
+  },
+  recentMain: {
+    flex: 1,
+    minWidth: 0,
+    border: 'none',
+    background: 'transparent',
+    color: '#fff',
     padding: 12,
     display: 'flex',
     gap: 12,
     textAlign: 'left',
-    cursor: 'pointer'
+    cursor: 'pointer',
+    fontFamily: 'inherit'
   },
   recentIcon: {
     width: 34,
@@ -609,22 +700,38 @@ const styles = {
     gap: 3
   },
   recentItemTitle: {
-    fontSize: 13,
-    lineHeight: 1.25,
+    fontSize: 14,
+    lineHeight: 1.22,
+    fontWeight: 800,
+    letterSpacing: 0,
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis'
   },
   recentMeta: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.58)',
+    fontSize: 12,
+    lineHeight: 1.25,
+    color: 'rgba(255,255,255,0.62)',
     whiteSpace: 'nowrap',
     overflow: 'hidden',
     textOverflow: 'ellipsis'
   },
   recentExpiry: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.78)'
+    fontSize: 12,
+    lineHeight: 1.25,
+    color: 'rgba(255,255,255,0.82)',
+    fontWeight: 650
+  },
+  removeIncident: {
+    width: 38,
+    border: 'none',
+    borderLeft: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(255,255,255,0.04)',
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 22,
+    lineHeight: 1,
+    cursor: 'pointer',
+    fontFamily: 'Inter, system-ui, sans-serif'
   },
   bar: {
     position: 'absolute',
