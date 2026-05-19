@@ -201,6 +201,7 @@ function Dashboard({ onLogout, userProfile = {} }) {
   const [pending, setPending] = useState(null)
   const [loading, setLoading] = useState(false)
   const [recentOpen, setRecentOpen] = useState(true)
+  const [confirmRemoveId, setConfirmRemoveId] = useState(null)
 
   // 1. FETCH INITIAL DATA FROM SUPABASE
   useEffect(() => {
@@ -378,6 +379,7 @@ function Dashboard({ onLogout, userProfile = {} }) {
     }
 
     setAlerts(prev => prev.filter(alert => alert.id !== alertId))
+    setConfirmRemoveId(null)
   }
 
   // 5. STEP 2: CONFIRM & SAVE TO DATABASE
@@ -520,16 +522,36 @@ function Dashboard({ onLogout, userProfile = {} }) {
                     </span>
                   </button>
 
-                  {alert.author_id === userProfile.id && (
+                  {alert.author_id === userProfile.id && confirmRemoveId !== alert.id && (
                     <button
                       type="button"
                       style={styles.removeIncident}
-                      onClick={() => removeIncident(alert.id)}
+                      onClick={() => setConfirmRemoveId(alert.id)}
                       aria-label="Supprimer ce signalement"
                       title="Supprimer ce signalement"
                     >
                       ×
                     </button>
+                  )}
+
+                  {alert.author_id === userProfile.id && confirmRemoveId === alert.id && (
+                    <div style={styles.removeConfirm}>
+                      <span style={styles.removeConfirmText}>Supprimer ?</span>
+                      <button
+                        type="button"
+                        style={styles.removeCancel}
+                        onClick={() => setConfirmRemoveId(null)}
+                      >
+                        Non
+                      </button>
+                      <button
+                        type="button"
+                        style={styles.removeConfirmButton}
+                        onClick={() => removeIncident(alert.id)}
+                      >
+                        Oui
+                      </button>
+                    </div>
                   )}
                 </div>
               )
@@ -732,6 +754,43 @@ const styles = {
     lineHeight: 1,
     cursor: 'pointer',
     fontFamily: 'Inter, system-ui, sans-serif'
+  },
+  removeConfirm: {
+    width: 96,
+    borderLeft: '1px solid rgba(255,255,255,0.08)',
+    background: 'rgba(0,0,0,0.18)',
+    padding: 6,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    gap: 5,
+    flexShrink: 0
+  },
+  removeConfirmText: {
+    fontSize: 10,
+    fontWeight: 800,
+    color: 'rgba(255,255,255,0.78)',
+    textAlign: 'center'
+  },
+  removeCancel: {
+    border: 'none',
+    borderRadius: 8,
+    background: 'rgba(255,255,255,0.12)',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 800,
+    padding: '5px 0',
+    cursor: 'pointer'
+  },
+  removeConfirmButton: {
+    border: 'none',
+    borderRadius: 8,
+    background: '#fff',
+    color: '#111',
+    fontSize: 10,
+    fontWeight: 800,
+    padding: '5px 0',
+    cursor: 'pointer'
   },
   bar: {
     position: 'absolute',
