@@ -3,6 +3,12 @@ import { supabase } from '../../supabaseClient'
 import loka from '../../assets/loka.png'
 import { GABON_LOCATIONS } from '../../constants'
 
+const getSignupRedirectUrl = () => {
+  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin
+
+  return `${appUrl.replace(/\/$/, '')}/dashboard`
+}
+
 function SignUp({ isOpen, onClose, onSwitchToLogin }) {
   const [form, setForm] = useState({
     nom: '',
@@ -54,7 +60,7 @@ function SignUp({ isOpen, onClose, onSwitchToLogin }) {
         email: form.email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: getSignupRedirectUrl(),
           data: {
             nom: form.nom,
             prenom: form.prenom,
